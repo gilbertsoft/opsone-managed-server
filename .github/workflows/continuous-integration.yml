@@ -1,0 +1,120 @@
+name: Continuous Integration (CI)
+
+on:
+  push:
+    branches:
+      - main
+      - 'server[0-9]+-php[0-9]+'
+  pull_request:
+  schedule:
+    - cron: '44 4 * * *'
+
+env:
+  COMPOSER_FLAGS: --ansi --no-interaction --no-progress --prefer-dist
+
+jobs:
+  validation:
+    name: Composer validation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Install PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          coverage: none
+          extensions: intl, zip
+          ini-values: memory_limit=-1, error_reporting=E_ALL, display_errors=On
+          php-version: latest
+          tools: composer
+
+      - name: Composer Cache Vars
+        id: composer-cache-vars
+        run: |
+          echo "::set-output name=dir::$(composer config cache-files-dir)"
+          echo "::set-output name=timestamp::$(date +"%s")"
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v2
+        with:
+          path: ${{ steps.composer-cache-vars.outputs.dir }}
+          key: ${{ runner.os }}-composer-2-latest-${{ steps.composer-cache-vars.outputs.timestamp }}
+          restore-keys: |
+            ${{ runner.os }}-composer-2-latest-
+            ${{ runner.os }}-composer-2-
+            ${{ runner.os }}-composer-
+
+      - name: Install dependencies
+        run: composer install ${{ env.COMPOSER_FLAGS }}
+
+      - name: Validate composer.json
+        run: composer ci:composer:validate
+
+      - name: Normalize composer.json
+        run: composer ci:composer:normalize
+
+  tests:
+    name: Tests
+    needs:
+      - validation
+    runs-on: ${{ matrix.os }}
+    continue-on-error: ${{ matrix.experimental }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+        php-version:
+          - 'nightly'
+        composer-version:
+          - '1'
+          - '2'
+        experimental:
+          - true
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          coverage: none
+          extensions: intl, zip
+          ini-values: memory_limit=-1, error_reporting=E_ALL, display_errors=On
+          php-version: ${{ matrix.php-version }}
+          tools: composer:${{ matrix.composer-version }}
+
+      - name: Composer Cache Vars
+        id: composer-cache-vars
+        run: |
+          echo "::set-output name=dir::$(composer config cache-files-dir)"
+          echo "::set-output name=timestamp::$(date +"%s")"
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v2
+        with:
+          path: ${{ steps.composer-cache-vars.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ matrix.composer-version }}-${{ matrix.php-version }}-${{ steps.composer-cache-vars.outputs.timestamp }}
+          restore-keys: |
+            ${{ runner.os }}-composer-${{ matrix.composer-version }}-${{ matrix.php-version }}-
+            ${{ runner.os }}-composer-${{ matrix.composer-version }}-
+            ${{ runner.os }}-composer-
+
+      - name: Install dependencies
+        run: composer update ${{ env.COMPOSER_FLAGS }}
+
+      - name: Smoke Tests
+        run: composer ci:tests:smoke
+
+      - name: Archive Logs
+        uses: actions/upload-artifact@v2
+        if: always()
+        with:
+          name: logs
+          path: var/log
+          if-no-files-found: ignore
+          retention-days: 5
