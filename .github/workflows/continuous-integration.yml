@@ -68,12 +68,12 @@ jobs:
         os:
           - ubuntu-latest
         php-version:
-          - 'nightly'
+          - '8.1'
         composer-version:
           - '1'
           - '2'
         experimental:
-          - true
+          - false
 
     steps:
       - name: Checkout
