@@ -68,7 +68,7 @@ jobs:
         os:
           - ubuntu-latest
         php-version:
-          - '7.4'
+          - '7.2'
         composer-version:
           - '1'
           - '2'
