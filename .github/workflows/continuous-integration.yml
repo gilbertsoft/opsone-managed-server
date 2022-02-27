@@ -68,10 +68,9 @@ jobs:
         os:
           - ubuntu-latest
         php-version:
-          - '7.2'
+          - '7.0'
         composer-version:
           - '1'
-          - '2'
         experimental:
           - false
 
