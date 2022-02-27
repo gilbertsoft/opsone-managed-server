@@ -1,0 +1,6 @@
+# Folders
+/var/*
+/vendor/*
+
+# Files
+/composer.lock
